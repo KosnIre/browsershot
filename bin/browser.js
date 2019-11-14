@@ -57,6 +57,8 @@ const callChrome = async () => {
 
         page = await browser.newPage();
 
+        const closeBrowserLogStreams = setUpBrowserLogStreams(page, request.options);
+
         if (request.options && request.options.disableJavascript) {
             await page.setJavaScriptEnabled(false);
         }
@@ -178,6 +180,8 @@ const callChrome = async () => {
             await page.close();
         }
 
+        closeBrowserLogStreams();
+
         await remoteInstance ? browser.disconnect() : browser.close();
     } catch (exception) {
         if (browser) {
@@ -198,5 +202,55 @@ const callChrome = async () => {
         process.exit(1);
     }
 };
+
+function setUpBrowserLogStreams(page, options) {
+    if (!options) return;
+    if (!options.pageLogFile && !options.pageExceptionFile) return;
+
+    let streams = [];
+
+    // capture logs from the browser
+    if (options.pageLogFile && options.pageExceptionFile &&
+        options.pageLogFile === options.pageExceptionFile) {
+        // write to same file
+        const stream = streamEventToFile('console', options.pageLogFile);
+        streamEventToFile('pageerror', options.pageLogFile, stream);
+        streams.push(stream);
+    } else {
+        // write to different files
+        if (options.pageLogFile) {
+            const stream = streamEventToFile('console', options.pageLogFile);
+            streams.push(stream);
+        }
+
+        if (options.pageExceptionFile) {
+            const stream = streamEventToFile('pageerror', options.pageExceptionFile);
+            streams.push(stream);
+        }
+    }
+
+    return () => {
+        // call this returned method to gracefully end the streams
+        for (const stream of streams) {
+            stream.end();
+        }
+    }
+}
+
+function streamEventToFile(evt, filePath, stream=null) {
+    const s = stream || fs.createWriteStream(filePath, { flags: 'a' });
+
+    page.on(evt, (msg) => {
+        let data = '\n';
+        if (evt === 'console') {
+            // msg is type 'ConsoleMessage'
+            data = `${msg.text()}\n`;
+        } else if (evt === 'pageerror') {
+            // msg is type 'Error'
+            data = `${msg.message()}\n`;
+        }
+        stream.write(data);
+    });
+}
 
 callChrome();

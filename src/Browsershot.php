@@ -357,6 +357,20 @@ class Browsershot
         return $this->setOption('disableJavascript', true);
     }
 
+    // Appends JavaScript console logs to specified file.
+    // Creates file if one does not exist. Does not create directory tree.
+    public function pageLogFile(string $filePath)
+    {
+        return $this->setOption('pageLogFile', $filePath);
+    }
+
+    // Appends JavaScript uncaught exceptions to specified file.
+    // Creates file if one does not exist. Does not create directory tree.
+    public function pageExceptionFile(string $filePath)
+    {
+        return $this->setOption('pageExceptionFile', $filePath);
+    }
+
     public function pages(string $pages)
     {
         return $this->setOption('pageRanges', $pages);
